@@ -1,0 +1,38 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.cleanhome'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.cleanhome'
+        minSdk 23
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    // A fixed key kept in the project, so every build is signed the same way
+    // and a rebuilt APK installs over the old one without uninstalling first.
+    signingConfigs {
+        fixed {
+            storeFile file('cleanhome.keystore')
+            storePassword 'cleanhome'
+            keyAlias 'cleanhome'
+            keyPassword 'cleanhome'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.fixed
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
