@@ -29,7 +29,10 @@ public class KeyService extends AccessibilityService {
                     + " scan " + event.getScanCode());
         }
 
-        if (event.getKeyCode() == KeyEvent.KEYCODE_SETTINGS) {
+        // This Hisense remote's settings (gear) button sends NOTIFICATION;
+        // SETTINGS is the code other Android TV remotes use.
+        int code = event.getKeyCode();
+        if (code == KeyEvent.KEYCODE_NOTIFICATION || code == KeyEvent.KEYCODE_SETTINGS) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
                 Intent i = new Intent(Settings.ACTION_SETTINGS);
                 i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
