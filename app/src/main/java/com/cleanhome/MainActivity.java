@@ -20,6 +20,7 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.TextClock;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -101,6 +102,8 @@ public class MainActivity extends Activity {
         screen.setBackgroundColor(Color.BLACK);
         screen.addView(glow, new FrameLayout.LayoutParams(MATCH, MATCH));
         screen.addView(root, new FrameLayout.LayoutParams(MATCH, MATCH));
+        screen.addView(clock(), new FrameLayout.LayoutParams(
+                WRAP, WRAP, Gravity.TOP | Gravity.END));
         setContentView(screen);
         load();
     }
@@ -302,6 +305,31 @@ public class MainActivity extends Activity {
             }
         });
         return cell;
+    }
+
+    /** Time (24-hour) over the date, for the top right corner. Keeps itself up to date. */
+    private View clock() {
+        TextClock time = new TextClock(this);
+        time.setFormat24Hour("HH:mm");
+        time.setFormat12Hour("HH:mm");      // 24-hour whatever the TV's own setting
+        time.setTextSize(22);
+        time.setTextColor(0xFFDDDDDD);
+        time.setGravity(Gravity.END);
+
+        TextClock date = new TextClock(this);
+        date.setFormat24Hour("EEE d MMM");
+        date.setFormat12Hour("EEE d MMM");
+        date.setTextSize(13);
+        date.setTextColor(0xFF888888);
+        date.setGravity(Gravity.END);
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.END);
+        box.setPadding(0, dp(18), dp(24), 0);
+        box.addView(time, new LinearLayout.LayoutParams(WRAP, WRAP));
+        box.addView(date, new LinearLayout.LayoutParams(WRAP, WRAP));
+        return box;
     }
 
     private View footerButton(String label, View.OnClickListener onClick) {
