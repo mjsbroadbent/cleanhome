@@ -167,17 +167,32 @@ final class Hue {
         boolean anyOn = g.getJSONObject("state").optBoolean("any_on");
         int bri = g.getJSONObject("action").optInt("bri", 254);
 
-        String body;
-        if (up) {
-            body = anyOn ? "{\"bri_inc\":" + STEP + ",\"transitiontime\":2}" : "{\"on\":true}";
-        } else if (!anyOn) {
-            return;                                     // already off
-        } else if (bri <= STEP) {
-            body = "{\"on\":false}";                    // dimming past the lowest step
-        } else {
-            body = "{\"bri_inc\":-" + STEP + ",\"transitiontime\":2}";
+        if (!up && !anyOn) return;                      // already off
+        if (!up && bri <= STEP + 9) {                   // dimming past the lowest step
+            request("PUT", ip, base + "/action", "{\"on\":false}");
+            return;
         }
-        request("PUT", ip, base + "/action", body);
+        if (anyOn) {
+            bri += up ? STEP : -STEP;                   // from off, come back at the old level
+        }
+        bri = Math.max(STEP, Math.min(254, bri));
+        if (bri > 254 - STEP / 2) bri = 254;            // land exactly on full
+
+        request("PUT", ip, base + "/action", "{\"on\":true,\"bri\":" + bri
+                + ",\"ct\":" + warmth(bri) + ",\"transitiontime\":2}");
+    }
+
+    /**
+     * The colour of white for a brightness: warmest at the lowest step,
+     * neutral at full, evenly graded between. Hue measures this in "mireds",
+     * where a bigger number is warmer: 500 is candle-like (2000K), 250 is
+     * neutral white (4000K).
+     */
+    private static int warmth(int bri) {
+        final int warmest = 500, neutral = 250;
+        float t = (bri - STEP) / (float) (254 - STEP);  // 0 at the lowest step, 1 at full
+        t = Math.max(0f, Math.min(1f, t));
+        return Math.round(warmest + t * (neutral - warmest));
     }
 
     // ------------------------------------------------------------ discovery

@@ -55,8 +55,6 @@ public class MainActivity extends Activity {
     private final List<View> tiles = new ArrayList<>();
     private int focusIndex = 0;
 
-    /** The coloured shimmer around the focused tile; drawn behind everything. */
-    private GlowView glow;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -95,12 +93,8 @@ public class MainActivity extends Activity {
         flp.bottomMargin = dp(8);
         root.addView(footer, flp);
 
-        // The glow layer goes underneath the tiles and links, so it can
-        // spread across the screen without ever covering another tile.
-        glow = new GlowView(this);
         FrameLayout screen = new FrameLayout(this);
         screen.setBackgroundColor(Color.BLACK);
-        screen.addView(glow, new FrameLayout.LayoutParams(MATCH, MATCH));
         screen.addView(root, new FrameLayout.LayoutParams(MATCH, MATCH));
         screen.addView(clock(), new FrameLayout.LayoutParams(
                 WRAP, WRAP, Gravity.TOP | Gravity.END));
@@ -141,7 +135,6 @@ public class MainActivity extends Activity {
 
     private void render() {
         grid.removeAllViews();
-        glow.setTarget(null);
         tiles.clear();
         for (String comp : chosen) {
             View tile = tile(comp);
@@ -248,10 +241,9 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * The shared tile shell: a rounded card that, when focused, gets a pulsing
-     * coloured border, a slight zoom and the shimmering glow around it. Unfocused
-     * tiles are dimmed by a dark film rather than made see-through, so the
-     * glow can't show through them.
+     * The shared tile shell: a rounded card that, when focused, gets a gently
+     * pulsing white outline and a slight zoom. Unfocused tiles are dimmed by
+     * a dark film.
      */
     private View cell(View content) {
         final FrameLayout card = new FrameLayout(this);
@@ -294,9 +286,6 @@ public class MainActivity extends Activity {
                 if (focused) {
                     int i = tiles.indexOf(v);
                     if (i >= 0) focusIndex = i;
-                    glow.setTarget(v);
-                } else if (glow.target() == v) {
-                    glow.setTarget(null);
                 }
             }
         });
