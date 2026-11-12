@@ -44,8 +44,8 @@ final class Hue {
     private static final String TAG = "CleanHome";
     private static final String PREFS = "hue";
 
-    /** One step is a fifth of the brightness range (1..254). */
-    private static final int STEP = 51;
+    /** One step is a tenth of the brightness range (1..254). */
+    private static final int STEP = 25;
 
     static final ExecutorService EXEC = Executors.newSingleThreadExecutor();
     private static final AtomicBoolean busy = new AtomicBoolean(false);
@@ -191,11 +191,16 @@ final class Hue {
      * at full. Brightness levels between the listed stops are blended.
      */
     private static String color(int bri) {
+        // Evenly spaced, and close together at the orange end so that no
+        // single step is a big jump.
         final float[][] stops = {
                 {0.590f, 0.390f},   // lowest step: deep orange
-                {0.510f, 0.415f},   // amber-white, about 2200K
+                {0.560f, 0.400f},   // orange
+                {0.530f, 0.410f},   // amber
+                {0.495f, 0.415f},   // amber-white, about 2300K
                 {0.460f, 0.411f},   // warm white, about 2700K
-                {0.418f, 0.397f},   // soft white, about 3300K
+                {0.435f, 0.404f},   // about 3000K
+                {0.410f, 0.394f},   // soft white, about 3400K
                 {0.380f, 0.377f},   // full: neutral white, about 4000K
         };
         float t = (bri - STEP) / (float) (254 - STEP);
