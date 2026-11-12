@@ -178,8 +178,33 @@ final class Hue {
         bri = Math.max(STEP, Math.min(254, bri));
         if (bri > 254 - STEP / 2) bri = 254;            // land exactly on full
 
+        // Colour bulbs follow "xy"; bulbs that only do shades of white ignore
+        // it and follow "ct" instead, so both are sent.
         request("PUT", ip, base + "/action", "{\"on\":true,\"bri\":" + bri
-                + ",\"ct\":" + warmth(bri) + ",\"transitiontime\":2}");
+                + ",\"ct\":" + warmth(bri) + ",\"xy\":" + color(bri)
+                + ",\"transitiontime\":2}");
+    }
+
+    /**
+     * The colour for a brightness, as a point on the colour chart Hue uses:
+     * deep orange at the lowest step, through warm whites, to neutral white
+     * at full. Brightness levels between the listed stops are blended.
+     */
+    private static String color(int bri) {
+        final float[][] stops = {
+                {0.590f, 0.390f},   // lowest step: deep orange
+                {0.510f, 0.415f},   // amber-white, about 2200K
+                {0.460f, 0.411f},   // warm white, about 2700K
+                {0.418f, 0.397f},   // soft white, about 3300K
+                {0.380f, 0.377f},   // full: neutral white, about 4000K
+        };
+        float t = (bri - STEP) / (float) (254 - STEP);
+        t = Math.max(0f, Math.min(1f, t)) * (stops.length - 1);
+        int i = Math.min((int) t, stops.length - 2);
+        float f = t - i;
+        float x = stops[i][0] + f * (stops[i + 1][0] - stops[i][0]);
+        float y = stops[i][1] + f * (stops[i + 1][1] - stops[i][1]);
+        return String.format(java.util.Locale.US, "[%.4f,%.4f]", x, y);
     }
 
     /**
