@@ -44,7 +44,7 @@ class BorderView extends View {
         colors = new SweepGradient(w / 2f, h / 2f, COLORS, null);
         line.setShader(colors);
         halo.setShader(colors);
-        float inset = 3.5f * density;
+        float inset = 2f * density;
         rect.set(inset, inset, w - inset, h - inset);
     }
 
@@ -60,14 +60,14 @@ class BorderView extends View {
         turn.setRotate((float) (t * 40 % 360), getWidth() / 2f, getHeight() / 2f);
         colors.setLocalMatrix(turn);
 
-        float corner = 14 * density;
+        float corner = 15 * density;
 
         // A wide, faint stroke underneath gives the line a soft edge.
-        halo.setStrokeWidth((6 + 3 * pulse) * density);
+        halo.setStrokeWidth((10 + 4 * pulse) * density);
         halo.setAlpha((int) (255 * (0.20 + 0.25 * pulse)));
         canvas.drawRoundRect(rect, corner, corner, halo);
 
-        line.setStrokeWidth((2.5f + 1.5f * pulse) * density);
+        line.setStrokeWidth((4.5f + 2f * pulse) * density);
         line.setAlpha((int) (255 * (0.65 + 0.35 * pulse)));
         canvas.drawRoundRect(rect, corner, corner, line);
 

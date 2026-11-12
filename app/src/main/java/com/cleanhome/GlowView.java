@@ -30,7 +30,7 @@ class GlowView extends View {
 
     GlowView(Context context) {
         super(context);
-        radius = 110 * getResources().getDisplayMetrics().density;
+        radius = 68 * getResources().getDisplayMetrics().density;
         for (int i = 0; i < COLORS.length; i++) {
             int rgb = COLORS[i];
             Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
