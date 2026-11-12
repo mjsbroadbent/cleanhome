@@ -88,6 +88,9 @@ public class MainActivity extends Activity {
         footer.addView(footerButton("Lights", new View.OnClickListener() {
             @Override public void onClick(View v) { lights(); }
         }));
+        footer.addView(footerButton("Update", new View.OnClickListener() {
+            @Override public void onClick(View v) { Updater.run(MainActivity.this); }
+        }));
         footer.addView(footerButton("Settings", new View.OnClickListener() {
             @Override public void onClick(View v) { open(new Intent(Settings.ACTION_SETTINGS)); }
         }));
@@ -104,6 +107,15 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         render();
+    }
+
+    /** The TV's installer reports back here during an update. */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (Updater.ACTION.equals(intent.getAction())) {
+            Updater.handle(this, intent);
+        }
     }
 
     @Override

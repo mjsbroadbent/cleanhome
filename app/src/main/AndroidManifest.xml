@@ -4,6 +4,9 @@
     <!-- For talking to the Hue bridge on the home network. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Lets the "Update" link install a newer Clean Home over this one. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
