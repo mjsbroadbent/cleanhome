@@ -1,5 +1,8 @@
 package com.cleanhome;
 
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ComponentName;
@@ -18,7 +21,6 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -31,10 +33,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A home screen that shows only the apps you pick, in one centred row.
+ * A home screen that shows only the apps you pick, in a grid three across
+ * (sized so that nine tiles, three rows, fill the screen).
  *
  *   OK            open the app
- *   hold OK       move the tile left/right, or remove it
+ *   hold OK       move the tile earlier/later, or remove it
  *   Menu button   choose which apps appear (also "Edit apps" at the bottom)
  */
 public class MainActivity extends Activity {
@@ -47,29 +50,35 @@ public class MainActivity extends Activity {
 
     /** Chosen apps, in display order, as flattened component names. */
     private final List<String> chosen = new ArrayList<>();
-    private LinearLayout row;
+    private static final int COLUMNS = 3;
+
+    private LinearLayout grid;
+    /** The tiles on screen, in reading order. */
+    private final List<View> tiles = new ArrayList<>();
     private int focusIndex = 0;
+
+    /** The glow under the focused tile, and the animation that makes it shimmer. */
+    private View glowView;
+    private AnimatorSet glowAnim;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        FrameLayout root = new FrameLayout(this);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.BLACK);
+        root.setClipChildren(false);
 
-        row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER);
-        row.setPadding(dp(64), 0, dp(64), 0);
-        row.setClipChildren(false);
-        row.setClipToPadding(false);
+        grid = new LinearLayout(this);
+        grid.setOrientation(LinearLayout.VERTICAL);
+        grid.setClipChildren(false);
 
-        HorizontalScrollView scroll = new HorizontalScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setHorizontalScrollBarEnabled(false);
-        scroll.setClipChildren(false);
-        scroll.addView(row, new FrameLayout.LayoutParams(WRAP, MATCH));
-        root.addView(scroll, new FrameLayout.LayoutParams(MATCH, MATCH));
+        // The grid sits in the middle of everything above the footer.
+        FrameLayout area = new FrameLayout(this);
+        area.setClipChildren(false);
+        area.addView(grid, new FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER));
+        root.addView(area, new LinearLayout.LayoutParams(MATCH, 0, 1f));
 
         LinearLayout footer = new LinearLayout(this);
         footer.setOrientation(LinearLayout.HORIZONTAL);
@@ -82,9 +91,9 @@ public class MainActivity extends Activity {
         footer.addView(footerButton("Settings", new View.OnClickListener() {
             @Override public void onClick(View v) { open(new Intent(Settings.ACTION_SETTINGS)); }
         }));
-        FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(
-                WRAP, WRAP, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-        flp.bottomMargin = dp(24);
+        LinearLayout.LayoutParams flp = new LinearLayout.LayoutParams(WRAP, WRAP);
+        flp.gravity = Gravity.CENTER_HORIZONTAL;
+        flp.bottomMargin = dp(8);
         root.addView(footer, flp);
 
         setContentView(root);
@@ -95,6 +104,12 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         render();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        stopGlow();     // no point animating while another app is on screen
     }
 
     /** Home is the bottom of the stack: Back does nothing. */
@@ -114,16 +129,32 @@ public class MainActivity extends Activity {
     // ---------------------------------------------------------------- tiles
 
     private void render() {
-        row.removeAllViews();
+        grid.removeAllViews();
+        stopGlow();
+        tiles.clear();
         for (String comp : chosen) {
             View tile = tile(comp);
-            if (tile != null) row.addView(tile);
+            if (tile != null) tiles.add(tile);
         }
-        if (row.getChildCount() == 0) {
-            row.addView(emptyTile());
+        if (tiles.isEmpty()) {
+            tiles.add(emptyTile());
         }
-        int i = Math.max(0, Math.min(focusIndex, row.getChildCount() - 1));
-        row.getChildAt(i).requestFocus();
+
+        // Lay the tiles out three to a line. Lines are left-aligned, so a
+        // part-filled last line still reads as a grid.
+        LinearLayout line = null;
+        for (int i = 0; i < tiles.size(); i++) {
+            if (i % COLUMNS == 0) {
+                line = new LinearLayout(this);
+                line.setOrientation(LinearLayout.HORIZONTAL);
+                line.setClipChildren(false);
+                grid.addView(line, new LinearLayout.LayoutParams(WRAP, WRAP));
+            }
+            line.addView(tiles.get(i));
+        }
+
+        int i = Math.max(0, Math.min(focusIndex, tiles.size() - 1));
+        tiles.get(i).requestFocus();
     }
 
     /** One app tile, or null if the app is no longer installed. */
@@ -150,14 +181,29 @@ public class MainActivity extends Activity {
 
         ImageView image = new ImageView(this);
         image.setImageDrawable(art);
+        View content;
         if (hasBanner) {
             image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            content = image;
         } else {
+            // No TV banner: show the app's icon with its name underneath.
             image.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            image.setPadding(dp(36), dp(36), dp(36), dp(36));
+            TextView name = new TextView(this);
+            name.setText(label);
+            name.setTextSize(13);
+            name.setTextColor(Color.WHITE);
+            name.setGravity(Gravity.CENTER);
+            name.setSingleLine(true);
+            name.setPadding(dp(8), dp(6), dp(8), 0);
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setGravity(Gravity.CENTER);
+            box.addView(image, new LinearLayout.LayoutParams(dp(52), dp(52)));
+            box.addView(name, new LinearLayout.LayoutParams(MATCH, WRAP));
+            content = box;
         }
 
-        final View cell = cell(image, hasBanner ? null : label);
+        final View cell = cell(content);
         cell.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 Intent i = new Intent(Intent.ACTION_MAIN);
@@ -183,7 +229,7 @@ public class MainActivity extends Activity {
         t.setTextSize(20);
         t.setTextColor(Color.WHITE);
         t.setGravity(Gravity.CENTER);
-        View cell = cell(t, null);
+        View cell = cell(t);
         cell.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { pickApps(); }
         });
@@ -191,10 +237,10 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * The shared tile shell: a rounded card with a white outline and slight
-     * zoom when focused, and an optional caption underneath.
+     * The shared tile shell: a rounded card that, when focused, gets a white
+     * outline, a slight zoom and a shimmering glow along its bottom edge.
      */
-    private View cell(View content, CharSequence caption) {
+    private View cell(View content) {
         final FrameLayout card = new FrameLayout(this);
         GradientDrawable cardBg = new GradientDrawable();
         cardBg.setColor(0xFF1A1A1A);
@@ -211,27 +257,35 @@ public class MainActivity extends Activity {
         FrameLayout frame = new FrameLayout(this);
         frame.setBackground(ring);
         frame.setPadding(dp(5), dp(5), dp(5), dp(5));
-        frame.addView(card, new FrameLayout.LayoutParams(dp(256), dp(144)));
+        frame.addView(card, new FrameLayout.LayoutParams(dp(208), dp(117)));
 
-        // The caption is always laid out (invisible when unused) so that
-        // banner tiles and icon tiles sit on the same line.
-        TextView text = new TextView(this);
-        text.setText(caption == null ? "" : caption);
-        text.setTextSize(16);
-        text.setTextColor(Color.WHITE);
-        text.setGravity(Gravity.CENTER);
-        text.setSingleLine(true);
-        text.setPadding(0, dp(8), 0, 0);
-        text.setVisibility(caption == null ? View.INVISIBLE : View.VISIBLE);
+        // The glow is a soft round light, squashed flat and centred on the
+        // card's bottom edge. It is drawn behind the card, so only the half
+        // spilling out underneath is seen.
+        final View glow = new View(this);
+        GradientDrawable light = new GradientDrawable();
+        light.setShape(GradientDrawable.OVAL);
+        light.setGradientType(GradientDrawable.RADIAL_GRADIENT);
+        light.setGradientRadius(dp(60));
+        light.setColors(new int[]{0xE6FFFFFF, 0x55CFE4FF, 0x00FFFFFF});
+        glow.setBackground(light);
+        glow.setAlpha(0f);
+        glow.setScaleX(1.5f);
+        glow.setScaleY(0.4f);
+        FrameLayout.LayoutParams glp = new FrameLayout.LayoutParams(
+                dp(120), dp(120), Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        glp.topMargin = dp(5 + 117 - 60);
 
-        final LinearLayout cell = new LinearLayout(this);
-        cell.setOrientation(LinearLayout.VERTICAL);
-        cell.setGravity(Gravity.CENTER_HORIZONTAL);
-        cell.addView(frame, new LinearLayout.LayoutParams(WRAP, WRAP));
-        cell.addView(text, new LinearLayout.LayoutParams(dp(256), WRAP));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(WRAP, WRAP);
-        lp.leftMargin = dp(16);
-        lp.rightMargin = dp(16);
+        final FrameLayout cell = new FrameLayout(this);
+        cell.setClipChildren(false);
+        cell.addView(glow, glp);
+        cell.addView(frame, new FrameLayout.LayoutParams(
+                WRAP, WRAP, Gravity.TOP | Gravity.CENTER_HORIZONTAL));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(218), dp(127));
+        lp.leftMargin = dp(10);
+        lp.rightMargin = dp(10);
+        lp.topMargin = dp(7);
+        lp.bottomMargin = dp(7);
         cell.setLayoutParams(lp);
 
         cell.setFocusable(true);
@@ -245,12 +299,46 @@ public class MainActivity extends Activity {
                 v.animate().scaleX(scale).scaleY(scale)
                         .alpha(focused ? 1f : 0.6f).setDuration(120).start();
                 if (focused) {
-                    int i = row.indexOfChild(v);
+                    int i = tiles.indexOf(v);
                     if (i >= 0) focusIndex = i;
+                    startGlow(glow);
+                } else if (glowView == glow) {
+                    stopGlow();
                 }
             }
         });
         return cell;
+    }
+
+    /**
+     * Shimmer: the glow's brightness and its width pulse at two different
+     * speeds, so the light never repeats in an obvious beat.
+     */
+    private void startGlow(View glow) {
+        stopGlow();
+        glowView = glow;
+        ObjectAnimator bright = ObjectAnimator.ofFloat(glow, "alpha", 0.35f, 1f);
+        bright.setDuration(1100);
+        ObjectAnimator width = ObjectAnimator.ofFloat(glow, "scaleX", 1.5f, 1.8f);
+        width.setDuration(1700);
+        for (ObjectAnimator a : new ObjectAnimator[]{bright, width}) {
+            a.setRepeatCount(ValueAnimator.INFINITE);
+            a.setRepeatMode(ValueAnimator.REVERSE);
+        }
+        glowAnim = new AnimatorSet();
+        glowAnim.playTogether(bright, width);
+        glowAnim.start();
+    }
+
+    private void stopGlow() {
+        if (glowAnim != null) {
+            glowAnim.cancel();
+            glowAnim = null;
+        }
+        if (glowView != null) {
+            glowView.setAlpha(0f);
+            glowView = null;
+        }
     }
 
     private View footerButton(String label, View.OnClickListener onClick) {
@@ -274,7 +362,7 @@ public class MainActivity extends Activity {
     // ---------------------------------------------------------------- menus
 
     private void tileMenu(final String comp, CharSequence label) {
-        CharSequence[] items = {"Move left", "Move right", "Remove from home"};
+        CharSequence[] items = {"Move earlier", "Move later", "Remove from home"};
         new AlertDialog.Builder(this)
                 .setTitle(label)
                 .setItems(items, new android.content.DialogInterface.OnClickListener() {
