@@ -44,6 +44,15 @@ public class KeyService extends AccessibilityService {
             }
             return true;    // swallow both the press and the release
         }
+        // Channel up / down brighten and dim the Hue room, once lights are paired.
+        if ((code == KeyEvent.KEYCODE_CHANNEL_UP || code == KeyEvent.KEYCODE_CHANNEL_DOWN)
+                && Hue.isReady(this)) {
+            // A held button repeats many times a second; act on every sixth.
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() % 6 == 0) {
+                Hue.stepAsync(this, code == KeyEvent.KEYCODE_CHANNEL_UP);
+            }
+            return true;
+        }
         return false;       // every other button behaves as normal
     }
 

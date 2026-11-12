@@ -76,6 +76,9 @@ public class MainActivity extends Activity {
         footer.addView(footerButton("Edit apps", new View.OnClickListener() {
             @Override public void onClick(View v) { pickApps(); }
         }));
+        footer.addView(footerButton("Lights", new View.OnClickListener() {
+            @Override public void onClick(View v) { lights(); }
+        }));
         footer.addView(footerButton("Settings", new View.OnClickListener() {
             @Override public void onClick(View v) { open(new Intent(Settings.ACTION_SETTINGS)); }
         }));
@@ -354,6 +357,102 @@ public class MainActivity extends Activity {
                     }
                 })
                 .show();
+    }
+
+    // --------------------------------------------------------------- lights
+
+    private void lights() {
+        if (!Hue.hasKey(this)) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Pair lights")
+                    .setMessage("Press the round button on the Hue bridge, then choose Pair "
+                            + "within 30 seconds.\n\nAfterwards, Channel Up and Channel Down "
+                            + "on the remote brighten and dim the room you pick.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Pair", new android.content.DialogInterface.OnClickListener() {
+                        @Override public void onClick(android.content.DialogInterface d, int w) {
+                            pairLights();
+                        }
+                    })
+                    .show();
+            return;
+        }
+        CharSequence[] items = {"Change room (now: " + Hue.roomName(this) + ")", "Unpair lights"};
+        new AlertDialog.Builder(this)
+                .setTitle("Lights")
+                .setItems(items, new android.content.DialogInterface.OnClickListener() {
+                    @Override public void onClick(android.content.DialogInterface d, int which) {
+                        if (which == 0) {
+                            chooseRoom();
+                        } else {
+                            Hue.unpair(MainActivity.this);
+                            toast("Lights unpaired. Channel buttons are back to normal.");
+                        }
+                    }
+                })
+                .show();
+    }
+
+    private void pairLights() {
+        toast("Looking for the Hue bridge\u2026");
+        Hue.EXEC.execute(new Runnable() {
+            @Override public void run() {
+                String problem = null;
+                try {
+                    Hue.pair(MainActivity.this);
+                } catch (Exception e) {
+                    problem = e.getMessage();
+                }
+                final String message = problem;
+                runOnUiThread(new Runnable() {
+                    @Override public void run() {
+                        if (message == null) chooseRoom(); else toast(message);
+                    }
+                });
+            }
+        });
+    }
+
+    private void chooseRoom() {
+        Hue.EXEC.execute(new Runnable() {
+            @Override public void run() {
+                List<String[]> found = null;
+                try {
+                    found = Hue.rooms(MainActivity.this);
+                } catch (Exception ignored) {
+                }
+                final List<String[]> rooms = found;
+                runOnUiThread(new Runnable() {
+                    @Override public void run() {
+                        if (isFinishing()) return;
+                        if (rooms == null) {
+                            toast("Couldn't reach the Hue bridge");
+                            return;
+                        }
+                        if (rooms.isEmpty()) {
+                            toast("No rooms are set up on the Hue bridge");
+                            return;
+                        }
+                        CharSequence[] names = new CharSequence[rooms.size()];
+                        for (int i = 0; i < names.length; i++) names[i] = rooms.get(i)[1];
+                        new AlertDialog.Builder(MainActivity.this)
+                                .setTitle("Which room?")
+                                .setItems(names, new android.content.DialogInterface.OnClickListener() {
+                                    @Override public void onClick(android.content.DialogInterface d, int which) {
+                                        String[] room = rooms.get(which);
+                                        Hue.setRoom(MainActivity.this, room[0], room[1]);
+                                        toast("Channel buttons now control " + room[1]);
+                                    }
+                                })
+                                .show();
+                    }
+                });
+            }
+        });
+    }
+
+    private void toast(String text) {
+        Toast.makeText(this, text, Toast.LENGTH_LONG).show();
     }
 
     private int indexOfPackage(String pkg) {
