@@ -248,8 +248,8 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * The shared tile shell: a rounded card that, when focused, gets a white
-     * outline, a slight zoom and the shimmering glow around it. Unfocused
+     * The shared tile shell: a rounded card that, when focused, gets a pulsing
+     * coloured border, a slight zoom and the shimmering glow around it. Unfocused
      * tiles are dimmed by a dark film rather than made see-through, so the
      * glow can't show through them.
      */
@@ -262,13 +262,7 @@ public class MainActivity extends Activity {
         card.setClipToOutline(true);
         card.addView(content, new FrameLayout.LayoutParams(MATCH, MATCH));
 
-        final GradientDrawable ring = new GradientDrawable();
-        ring.setColor(Color.TRANSPARENT);
-        ring.setCornerRadius(dp(16));
-        ring.setStroke(dp(3), Color.TRANSPARENT);
-
         FrameLayout frame = new FrameLayout(this);
-        frame.setBackground(ring);
         frame.setPadding(dp(5), dp(5), dp(5), dp(5));
         frame.addView(card, new FrameLayout.LayoutParams(dp(208), dp(117)));
 
@@ -279,6 +273,8 @@ public class MainActivity extends Activity {
         final FrameLayout cell = new FrameLayout(this);
         cell.setClipChildren(false);
         cell.addView(frame, new FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER));
+        final BorderView border = new BorderView(this);
+        cell.addView(border, new FrameLayout.LayoutParams(MATCH, MATCH));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(218), dp(127));
         lp.leftMargin = dp(10);
         lp.rightMargin = dp(10);
@@ -291,7 +287,7 @@ public class MainActivity extends Activity {
         cell.setClickable(true);
         cell.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override public void onFocusChange(View v, boolean focused) {
-                ring.setStroke(dp(3), focused ? Color.WHITE : Color.TRANSPARENT);
+                border.setActive(focused);
                 float scale = focused ? 1.08f : 1f;
                 v.animate().scaleX(scale).scaleY(scale).setDuration(120).start();
                 shade.animate().alpha(focused ? 0f : 1f).setDuration(120).start();
