@@ -1,7 +1,11 @@
 package com.cleanhome;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.ComponentName;
+import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -62,5 +66,56 @@ public class KeyService extends AccessibilityService {
 
     @Override
     public void onInterrupt() {
+    }
+
+    // ------------------------------------------------------- on / off switch
+
+    /** Whether Clean Home has been given the permission to flip the switch below. */
+    static boolean canSwitch(Context c) {
+        return c.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS")
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    /**
+     * Turns this service on or off in the TV's accessibility settings.
+     *
+     * Some apps handle the remote differently whenever any accessibility
+     * service is running, so the launcher turns this one off while such an
+     * app is open and back on when the home screen returns. Other services
+     * in the list are left alone. Returns false if the permission is missing.
+     */
+    static boolean setEnabled(Context c, boolean on) {
+        if (!canSwitch(c)) return false;
+        try {
+            ContentResolver cr = c.getContentResolver();
+            String me = new ComponentName(c, KeyService.class).flattenToString();
+            String current = Settings.Secure.getString(cr, "enabled_accessibility_services");
+
+            StringBuilder list = new StringBuilder();
+            boolean present = false;
+            if (current != null) {
+                for (String s : current.split(":")) {
+                    if (s.isEmpty()) continue;
+                    ComponentName cn = ComponentName.unflattenFromString(s);
+                    boolean mine = cn != null && cn.flattenToString().equals(me);
+                    if (mine) present = true;
+                    if (mine && !on) continue;          // drop it
+                    if (list.length() > 0) list.append(':');
+                    list.append(s);
+                }
+            }
+            if (on && !present) {
+                if (list.length() > 0) list.append(':');
+                list.append(me);
+            }
+            if (on == present) return true;             // already as wanted
+
+            Settings.Secure.putString(cr, "enabled_accessibility_services", list.toString());
+            Settings.Secure.putInt(cr, "accessibility_enabled", list.length() > 0 ? 1 : 0);
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "could not switch the button service", e);
+            return false;
+        }
     }
 }

@@ -7,6 +7,11 @@
     <!-- Lets the "Update" link install a newer Clean Home over this one. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Lets Clean Home switch its own remote-button service off and on, for
+         apps that misbehave while it runs. Only takes effect once granted
+         from a computer:  adb shell pm grant com.cleanhome android.permission.WRITE_SECURE_SETTINGS -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 

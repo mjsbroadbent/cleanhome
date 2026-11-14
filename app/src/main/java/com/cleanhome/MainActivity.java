@@ -42,6 +42,7 @@ public class MainActivity extends Activity {
 
     private static final String PREFS = "home";
     private static final String KEY_APPS = "apps";
+    private static final String KEY_QUIET = "quiet";
 
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
@@ -54,6 +55,12 @@ public class MainActivity extends Activity {
     /** The tiles on screen, in reading order. */
     private final List<View> tiles = new ArrayList<>();
     private int focusIndex = 0;
+
+    /**
+     * Apps (by package) that Clean Home's remote-button service is switched
+     * off for, because they navigate badly while it runs. Crave is one.
+     */
+    private final List<String> quiet = new ArrayList<>();
 
 
     @Override
@@ -105,6 +112,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        KeyService.setEnabled(this, true);      // back home: remote buttons on again
         render();
     }
 
@@ -214,6 +222,9 @@ public class MainActivity extends Activity {
                 i.setComponent(cn);
                 i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                         | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+                if (quiet.contains(cn.getPackageName())) {
+                    KeyService.setEnabled(MainActivity.this, false);
+                }
                 open(i);
             }
         });
@@ -338,7 +349,12 @@ public class MainActivity extends Activity {
     // ---------------------------------------------------------------- menus
 
     private void tileMenu(final String comp, CharSequence label) {
-        CharSequence[] items = {"Move earlier", "Move later", "Remove from home"};
+        ComponentName cn = ComponentName.unflattenFromString(comp);
+        final String pkg = cn == null ? "" : cn.getPackageName();
+        CharSequence[] items = {"Move earlier", "Move later", "Remove from home",
+                quiet.contains(pkg)
+                        ? "Remote extras in this app: OFF (select to turn on)"
+                        : "Remote extras in this app: ON (select to turn off)"};
         new AlertDialog.Builder(this)
                 .setTitle(label)
                 .setItems(items, new android.content.DialogInterface.OnClickListener() {
@@ -353,6 +369,15 @@ public class MainActivity extends Activity {
                             focusIndex = i + 1;
                         } else if (which == 2) {
                             chosen.remove(i);
+                        } else if (which == 3) {
+                            if (!quiet.remove(pkg)) quiet.add(pkg);
+                            if (!KeyService.canSwitch(MainActivity.this)) {
+                                toast("Saved, but this needs a one-time command from a computer to take effect");
+                            } else {
+                                toast(quiet.contains(pkg)
+                                        ? "The settings and light buttons will be off inside this app"
+                                        : "The settings and light buttons will work inside this app");
+                            }
                         }
                         save();
                         render();
@@ -543,11 +568,21 @@ public class MainActivity extends Activity {
         for (String s : saved.split("\n")) {
             if (!s.isEmpty()) chosen.add(s);
         }
+
+        // Crave's search page can't be navigated while the button service
+        // runs, so it starts out on the list until changed from its tile menu.
+        quiet.clear();
+        String q = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getString(KEY_QUIET, "ca.bellmedia.cravetv");
+        for (String s : q.split("\n")) {
+            if (!s.isEmpty()) quiet.add(s);
+        }
     }
 
     private void save() {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                .putString(KEY_APPS, TextUtils.join("\n", chosen)).apply();
+                .putString(KEY_APPS, TextUtils.join("\n", chosen))
+                .putString(KEY_QUIET, TextUtils.join("\n", quiet)).apply();
     }
 
     private int dp(int value) {
